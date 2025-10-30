@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Secret Santa Helper</title>
+<style>
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f7fa;
+  color: #333;
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.container {
+  position: relative;
+  background: white;
+  max-width: 700px;
+  width: 100%;
+  padding: 30px 40px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+
+  /* imagem de fundo */
+  background: url('https://pocket.pokemongohub.net/_next/image?url=%2Ftcg-pocket%2Fillustrations%2Fa1%2FcPK_10_000310_00_MEECLE_C_L_ILL.webp&w=1080&q=75') no-repeat center center;
+  background-repeat: no-repeat;
+  background-position: top;
+  background-size: cover;
+  overflow: hidden;
+}
+
+/* overlay branco semi-transparente */
+.container::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(255, 255, 255, 0.75);
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 10px;
+}
+
+/* conteúdo acima do overlay */
+.container > * {
+  position: relative;
+  z-index: 2;
+}
+
+h2, h3 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+}
+
+label {
+  font-weight: 600;
+  display: block;
+  margin-top: 20px;
+  margin-bottom: 6px;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 1rem;
+  border: 1.8px solid #ccc;
+  border-radius: 6px;
+  transition: border-color 0.3s ease;
+}
+
+input[type="text"]:focus {
+  border-color: #1bc22c;
+  outline: none;
+}
+
+button {
+  margin-top: 25px;
+  padding: 12px 20px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  background: #1bc22c;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  width: 100%;
+}
+
+button:hover {
+  background: #10891c;
+}
+
+#categoriasList {
+  margin-top: 10px;
+  margin-bottom: 25px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.categoria-item {
+  background: #d6e9f8;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  color: #10891c;
+  user-select: none;
+}
+
+#pessoasList {
+  margin-top: 20px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px 15px;
+  background: #fafafa;
+}
+
+.pessoa-item {
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+  font-weight: 600;
+}
+
+.pessoa-item:last-child {
+  border-bottom: none;
+}
+
+#resultado {
+  margin-top: 30px;
+  white-space: pre-wrap;
+  background: #ecf0f1;
+  padding: 15px 20px;
+  border-radius: 8px;
+  border: 1px solid #bdc3c7;
+  font-family: Consolas, monospace;
+  max-height: 300px;
+  overflow-y: auto;
+  color: #2c3e50;
+}
+
+/* Checkboxes */
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 5px;
+}
+.checkbox-label {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 1rem; 
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  cursor: pointer;
+}
+
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Arwyn's Secret Santa Helper!</h2>
+
+  <label for="novaCategoria">Add new character type:</label>
+  <div style="display:flex; gap:10px;">
+    <input type="text" id="novaCategoria" placeholder="e.g. Human, Furry..." />
+    <button id="addCategoriaBtn" type="button" style="width:150px;">Add type</button>
+  </div>
+
+  <h3>Types registered:</h3>
+  <div id="categoriasList" aria-live="polite"></div>
+
+  <hr style="margin: 30px 0;">
+
+  <label for="nome">Artist's name:</label>
+  <input type="text" id="nome" placeholder="e.g. Zenala" />
+
+  <label>Character types the artist HAS:</label>
+  <div id="temCheckboxes" class="checkbox-group"></div>
+
+  <label>Character types the artist CAN DRAW:</label>
+  <div id="podeCheckboxes" class="checkbox-group"></div>
+
+  <button id="adicionarBtn">Add artist</button>
+
+  <h3>Artists added:</h3>
+  <div id="pessoasList"></div>
+
+  <button id="validarBtn" style="margin-top: 15px;">Check who can't draw who</button>
+
+  <button id="sortearBtn" style="margin-top: 15px;">Give me a valid combination</button>
+
+  <h3>Result:</h3>
+  <div id="resultado"></div>
+</div>
+
+<script>
+  const categorias = [];
+  const pessoas = [];
+
+  const novaCategoriaInput = document.getElementById('novaCategoria');
+  const addCategoriaBtn = document.getElementById('addCategoriaBtn');
+  const categoriasList = document.getElementById('categoriasList');
+
+  const nomeInput = document.getElementById('nome');
+  const temCheckboxes = document.getElementById('temCheckboxes');
+  const podeCheckboxes = document.getElementById('podeCheckboxes');
+  const pessoasList = document.getElementById('pessoasList');
+  const resultadoDiv = document.getElementById('resultado');
+
+  // Função para atualizar as categorias visuais
+  function atualizarCategorias() {
+    categoriasList.innerHTML = '';
+    categorias.forEach(cat => {
+      const div = document.createElement('div');
+      div.className = 'categoria-item';
+      div.textContent = cat;
+      categoriasList.appendChild(div);
+    });
+
+    // Atualiza os checkboxes para TEM e PODE DESENHAR
+    temCheckboxes.innerHTML = '';
+    podeCheckboxes.innerHTML = '';
+    categorias.forEach(cat => {
+      // Checkbox para TEM
+      const labelTem = document.createElement('label');
+      labelTem.className = 'checkbox-label';
+      const checkboxTem = document.createElement('input');
+      checkboxTem.type = 'checkbox';
+      checkboxTem.value = cat;
+      labelTem.appendChild(checkboxTem);
+      labelTem.appendChild(document.createTextNode(cat));
+      temCheckboxes.appendChild(labelTem);
+
+      // Checkbox para PODE
+      const labelPode = document.createElement('label');
+      labelPode.className = 'checkbox-label';
+      const checkboxPode = document.createElement('input');
+      checkboxPode.type = 'checkbox';
+      checkboxPode.value = cat;
+      labelPode.appendChild(checkboxPode);
+      labelPode.appendChild(document.createTextNode(cat));
+      podeCheckboxes.appendChild(labelPode);
+    });
+  }
+
+  // Adicionar categoria nova
+  addCategoriaBtn.addEventListener('click', () => {
+    const novaCat = novaCategoriaInput.value.trim();
+    if (!novaCat) {
+      alert('Write a valid type!');
+      return;
+    }
+    if (categorias.includes(novaCat)) {
+      alert('Type already exists!');
+      return;
+    }
+    categorias.push(novaCat);
+    novaCategoriaInput.value = '';
+    atualizarCategorias();
+  });
+
+  // Atualiza a lista de pessoas visualmente
+  function atualizarListaPessoas() {
+    pessoasList.innerHTML = '';
+    pessoas.forEach((p) => {
+      const div = document.createElement('div');
+      div.className = 'pessoa-item';
+      div.textContent = `${p.nome} has: ${p.tem.join(', ') || '-'} | ${p.nome} can draw: ${p.pode.join(', ') || '-'}`;
+      pessoasList.appendChild(div);
+    });
+  }
+
+  // Pega as categorias marcadas em um container de checkboxes
+  function pegarCategoriasMarcadas(container) {
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+  }
+
+  // Adicionar pessoa
+  document.getElementById('adicionarBtn').addEventListener('click', () => {
+    const nome = nomeInput.value.trim();
+    if (!nome) {
+      alert("Write the artist's name!");
+      return;
+    }
+    const tem = pegarCategoriasMarcadas(temCheckboxes);
+    const pode = pegarCategoriasMarcadas(podeCheckboxes);
+    if (tem.length === 0) {
+      alert('The artist must have at least one type!');
+      return;
+    }
+    if (pode.length === 0) {
+      alert('The artist must be able to draw at least one type!');
+      return;
+    }
+
+    pessoas.push({ nome, tem, pode });
+    nomeInput.value = '';
+    temCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    podeCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+    atualizarListaPessoas();
+    resultadoDiv.textContent = '';
+  });
+
+  // Validar quem não pode tirar quem
+  document.getElementById('validarBtn').addEventListener('click', () => {
+    if (pessoas.length === 0) {
+      alert('Add at least one person!');
+      return;
+    }
+
+    let resultado = '';
+
+    for (let i = 0; i < pessoas.length; i++) {
+      for (let j = 0; j < pessoas.length; j++) {
+        if (i === j) continue;
+
+        const podeDesenhar = pessoas[i].pode;
+        const temDoOutro = pessoas[j].tem;
+
+        // Verifica se TEM do outro tem pelo menos um tipo que i pode desenhar
+        let podeDesenharAlgum = temDoOutro.some(tipo => podeDesenhar.includes(tipo));
+
+        if (!podeDesenharAlgum) {
+          resultado += `${pessoas[i].nome} CANNOT draw: ${pessoas[j].nome}\n`;
+        }
+      }
+    }
+
+    resultadoDiv.textContent = resultado || 'Anyone can draw anyone!';
+  });
+
+document.getElementById('sortearBtn').addEventListener('click', () => {
+  if (pessoas.length < 2) {
+    alert('You need at least 2 artists!');
+    return;
+  }
+
+  const tentativaMax = 1000;
+  let tentativa = 0;
+  let sorteioValido = false;
+  let resultado = [];
+
+  while (tentativa < tentativaMax && !sorteioValido) {
+    tentativa++;
+    const restante = [...pessoas];
+    const sorteioAtual = [];
+
+    let valido = true;
+
+    for (const sorteador of pessoas) {
+      // Possíveis opções para esse sorteador: não ele mesmo e o tipo compatível
+      const candidatos = restante.filter(possivel =>
+        possivel.nome !== sorteador.nome &&
+        possivel.tem.some(tipo => sorteador.pode.includes(tipo))
+      );
+
+      if (candidatos.length === 0) {
+        valido = false;
+        break;
+      }
+
+      // Sorteia alguém aleatório válido
+      const escolhido = candidatos[Math.floor(Math.random() * candidatos.length)];
+      sorteioAtual.push({ de: sorteador.nome, para: escolhido.nome });
+
+      // Remove sorteado da lista
+      const index = restante.findIndex(p => p.nome === escolhido.nome);
+      restante.splice(index, 1);
+    }
+
+    if (valido) {
+      sorteioValido = true;
+      resultado = sorteioAtual;
+    }
+  }
+
+  if (sorteioValido) {
+    resultadoDiv.textContent = resultado.map(r => `${r.de} → ${r.para}`).join('\n');
+  } else {
+    resultadoDiv.textContent = 'I could not find a valid combination :(';
+  }
+});
+
+</script>
+
+</body>
+</html>
